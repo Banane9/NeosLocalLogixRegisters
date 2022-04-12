@@ -18,7 +18,7 @@ namespace LocalLogixRegisters
         public static ModConfiguration Config;
 
         [AutoRegisterConfigKey]
-        private static ModConfigurationKey<bool> LocalDefault = new ModConfigurationKey<bool>("LocalDefault", "Create Local Registers by Default.", () => false);
+        private static ModConfigurationKey<bool> LocalDefault = new ModConfigurationKey<bool>("LocalDefault", "Create localized registers by default.", () => false);
 
         public override string Author => "Banane9";
         public override string Link => "https://github.com/Banane9/NeosLocalLogixRegisters";
@@ -64,17 +64,23 @@ namespace LocalLogixRegisters
             }
 
             [HarmonyPostfix]
-            [HarmonyPatch(typeof(ToolTip), nameof(LogixTip.OnDequipped))]
+            [HarmonyPatch("OnDestroy")]
             private static void OnDequippedPostfix(LogixTip __instance)
             {
-                boolFields[__instance].Destroy();
+                if (!boolFields.ContainsKey(__instance))
+                    return;
+
+                boolFields[__instance]?.Destroy();
                 boolFields.Remove(__instance);
             }
 
             [HarmonyPostfix]
-            [HarmonyPatch(typeof(ToolTip), nameof(LogixTip.OnEquipped))]
+            [HarmonyPatch(nameof(LogixTip.OnEquipped))]
             private static void OnEquippedPostfix(LogixTip __instance)
             {
+                if (boolFields.ContainsKey(__instance))
+                    return;
+
                 var local = __instance.Slot.AttachComponent<ValueField<bool>>();
                 local.Value.Value = Config.GetValue(LocalDefault);
                 boolFields.Add(__instance, local);
@@ -105,7 +111,7 @@ namespace LocalLogixRegisters
                 Msg("Linking to " + field + " with Type " + type.ToString());
                 if (typeIndex == 3)
                 {
-                    field = ((UserRef)field).TryGetField("User");
+                    field = (IField)Traverse.Create(register).Field("User").Field("User").GetValue();
                     Msg("Linking to " + field.ToString() + " with Type " + type.ToString());
                 }
 

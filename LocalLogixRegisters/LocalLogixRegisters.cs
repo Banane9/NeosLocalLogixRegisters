@@ -37,16 +37,10 @@ namespace LocalLogixRegisters
         [HarmonyPatch(typeof(LogixTip))]
         private static class LogixTipPatch
         {
+            private const string localizedPrefix = "Localized ";
+
             private static readonly Dictionary<LogixTip, ValueField<bool>> boolFields = new Dictionary<LogixTip, ValueField<bool>>();
             private static readonly Type[] copyTypes = new[] { typeof(ValueCopy<>), typeof(ReferenceCopy<>) };
-
-            private static readonly Func<Type, Type>[] getCopyType = new Func<Type, Type>[]
-            {
-                type => copyTypes[0].MakeGenericType(type.GetGenericArguments()[0]),
-                type => copyTypes[1].MakeGenericType(type.GetGenericArguments()[0]),
-                type => copyTypes[1].MakeGenericType(typeof(Slot)),
-                type => copyTypes[1].MakeGenericType(typeof(User))
-            };
 
             private static readonly Dictionary<LogixTip, Slot> lastCreatedSlot = new Dictionary<LogixTip, Slot>();
             private static readonly string[] targetFieldNames = new[] { "Value", "Target", "Target", "User" };
@@ -63,7 +57,10 @@ namespace LocalLogixRegisters
             [HarmonyPatch(nameof(LogixTip.GenerateMenuItems))]
             private static void GenerateMenuItemsPostfix(LogixTip __instance, ContextMenu menu)
             {
-                menu.AddToggleItem(boolFields[__instance].Value, "Disable Creating Local Registers", "Enable Creating Local Registers", color.Green, color.Red);
+                menu.AddToggleItem(boolFields[__instance].Value,
+                    "Creating Localized Registers", "Creating Synchronized Registers", color.Green, color.Red,
+                    new Uri("neosdb:///12db534404a43b1662c90771882d624ed8505a39c9cb6ed898009d456c88d8fe"),
+                    new Uri("neosdb:///eed4447d3cc06e57230a94821bde65d310f4a561017fefc4970f4f80d0a66ddc"));
             }
 
             [HarmonyPostfix]
@@ -101,21 +98,27 @@ namespace LocalLogixRegisters
                     return;
 
                 var typeIndex = type.IsGenericType ? (type.GetGenericTypeDefinition() == targetTypes[0] ? 0 : 1) : (type == targetTypes[2] ? 2 : 3);
-
-                var copy = Traverse.Create(slot.AttachComponent(getCopyType[typeIndex](type)));
+                Msg("Target Register: " + register.ToString() + " with Members: " + string.Join("; ", register.SyncMembers.Select(m => m.Name + " is initing: " + m.IsInInitPhase)));
                 var field = register.TryGetField(targetFieldNames[typeIndex]);
 
+                Msg("User: " + ((UserRegister)register).User + " is null: " + ((UserRegister)register).User == null);
+                Msg("Linking to " + field + " with Type " + type.ToString());
                 if (typeIndex == 3)
+                {
                     field = ((UserRef)field).TryGetField("User");
+                    Msg("Linking to " + field.ToString() + " with Type " + type.ToString());
+                }
 
-                copy.Field("Source").Property("Target").SetValue(field);
-                copy.Field("Target").Property("Target").SetValue(field);
-                copy.Field("WriteBack").Property("Value").SetValue(true);
+                if (typeIndex == 0)
+                    ValueCopyExtensions.DriveFrom(field, field, true, true, false);
+                else
+                    ReferenceCopyExtensions.DriveFrom((ISyncRef)field, (ISyncRef)field, true, true, false);
 
-                slot.Name = "Local " + slot.Name;
-                slot.Tag = slot.Name;
+                slot.Name = localizedPrefix + slot.Name;
 
-                slot.GetComponentInChildren<Text>().Content.Value = slot.Name;
+                var textContent = slot.GetComponentInChildren<Text>().Content;
+                textContent.Value = localizedPrefix + textContent.Value;
+                slot.Tag = textContent.Value;
             }
         }
     }

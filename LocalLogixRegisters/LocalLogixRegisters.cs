@@ -7,6 +7,7 @@ using CodeX;
 using FrooxEngine;
 using FrooxEngine.LogiX;
 using FrooxEngine.LogiX.Data;
+using FrooxEngine.LogiX.ProgramFlow;
 using FrooxEngine.UIX;
 using HarmonyLib;
 using NeosModLoader;
@@ -36,15 +37,16 @@ namespace LocalLogixRegisters
         [HarmonyPatch(typeof(LogixTip))]
         private static class LogixTipPatches
         {
+            private const string globalIcon = "neosdb:///eed4447d3cc06e57230a94821bde65d310f4a561017fefc4970f4f80d0a66ddc";
+            private const string localIcon = "neosdb:///12db534404a43b1662c90771882d624ed8505a39c9cb6ed898009d456c88d8fe";
+
             private const string localizedPrefix = "Localized ";
 
             private static readonly Dictionary<LogixTip, ValueField<bool>> boolFields = new Dictionary<LogixTip, ValueField<bool>>();
-            private static readonly Type[] copyTypes = new[] { typeof(ValueCopy<>), typeof(ReferenceCopy<>) };
-
             private static readonly Dictionary<LogixTip, Slot> lastCreatedSlot = new Dictionary<LogixTip, Slot>();
 
-            private static readonly string[] targetFieldNames = new[] { "Value", "Target", "Target", "User" };
-            private static readonly Type[] targetTypes = new[] { typeof(ValueRegister<>), typeof(ReferenceRegister<>), typeof(SlotRegister), typeof(UserRegister) };
+            private static readonly string[] targetFieldNames = new[] { "Value", "State", "Target", "Target", "User" };
+            private static readonly Type[] targetTypes = new[] { typeof(ValueRegister<>), typeof(BooleanToggle), typeof(ReferenceRegister<>), typeof(SlotRegister), typeof(UserRegister) };
 
             [HarmonyPostfix]
             [HarmonyPatch("CreateNewNodeSlot")]
@@ -62,16 +64,16 @@ namespace LocalLogixRegisters
                     var local = __instance.Slot.AttachComponent<ValueField<bool>>();
 
                     local.Persistent = false;
-                    local.Value.Value = LocalLogixRegisters.Config.GetValue(LocalLogixRegisters.LocalDefault);
+                    local.Value.Value = Config.GetValue(LocalDefault);
                     local.MarkChangeDirty();
 
                     boolFields.Add(__instance, local);
                 }
 
                 menu.AddToggleItem(boolFields[__instance].Value,
-                    "Creating Localized Registers", "Creating Synchronized Registers", color.Pink, color.White,
-                    new Uri("neosdb:///12db534404a43b1662c90771882d624ed8505a39c9cb6ed898009d456c88d8fe"),
-                    new Uri("neosdb:///eed4447d3cc06e57230a94821bde65d310f4a561017fefc4970f4f80d0a66ddc"));
+                    "Creating Localized Registers", "Creating Synchronized Registers",
+                    color.Pink, color.White,
+                    new Uri(localIcon), new Uri(globalIcon));
             }
 
             [HarmonyPostfix]
@@ -86,15 +88,16 @@ namespace LocalLogixRegisters
                  || !lastCreatedSlot.TryGetValue(__instance, out var slot))
                     return;
 
-                var register = slot.GetComponent(type);
+                var register = slot.GetComponent(type, true);
                 if (register == null)
                     return;
 
-                var typeIndex = type.IsGenericType ? (type.GetGenericTypeDefinition() == targetTypes[0] ? 0 : 1) : (type == targetTypes[2] ? 2 : 3);
+                var typeIndex = type.IsGenericType ? (type.GetGenericTypeDefinition() == targetTypes[0] ? 0 : 2)
+                    : (type == targetTypes[1] ? 1 : (type == targetTypes[3] ? 3 : 4));
 
-                var field = typeIndex == 3 ? (IField)Traverse.Create(register).Field("User").Field("User").GetValue() : register.TryGetField(targetFieldNames[typeIndex]);
+                var field = typeIndex == 4 ? ((UserRegister)register).User.User : register.TryGetField(targetFieldNames[typeIndex]);
 
-                if (typeIndex == 0)
+                if (typeIndex <= 1)
                     ValueCopyExtensions.DriveFrom(field, field, true, true, false);
                 else
                     ReferenceCopyExtensions.DriveFrom((ISyncRef)field, (ISyncRef)field, true, true, false);

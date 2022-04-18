@@ -21,10 +21,19 @@ namespace LocalLogixRegisters
         [AutoRegisterConfigKey]
         private static ModConfigurationKey<bool> LocalDefault = new ModConfigurationKey<bool>("LocalDefault", "Create localized registers by default.", () => false);
 
+        [AutoRegisterConfigKey]
+        private static ModConfigurationKey<string> NamePrefix = new ModConfigurationKey<string>("NamePrefix", "Name prefix for localized registers.", () => "Localized");
+
+        [AutoRegisterConfigKey]
+        private static ModConfigurationKey<Uri> GlobalIcon = new ModConfigurationKey<Uri>("GlobalIcon", "Icon to use when creating synchronized registers.", () => new Uri("neosdb:///eed4447d3cc06e57230a94821bde65d310f4a561017fefc4970f4f80d0a66ddc"));
+
+        [AutoRegisterConfigKey]
+        private static ModConfigurationKey<Uri> LocalIcon = new ModConfigurationKey<Uri>("LocalIcon", "Icon to use when creating localized registers.", () => new Uri("neosdb:///12db534404a43b1662c90771882d624ed8505a39c9cb6ed898009d456c88d8fe"));
+
         public override string Author => "Banane9";
         public override string Link => "https://github.com/Banane9/NeosLocalLogixRegisters";
         public override string Name => "LocalLogixRegisters";
-        public override string Version => "1.0.0";
+        public override string Version => "1.1.0";
 
         public override void OnEngineInit()
         {
@@ -37,55 +46,73 @@ namespace LocalLogixRegisters
         [HarmonyPatch(typeof(LogixTip))]
         private static class LogixTipPatches
         {
-            private const string globalIcon = "neosdb:///eed4447d3cc06e57230a94821bde65d310f4a561017fefc4970f4f80d0a66ddc";
-            private const string localIcon = "neosdb:///12db534404a43b1662c90771882d624ed8505a39c9cb6ed898009d456c88d8fe";
-
-            private const string localizedPrefix = "Localized ";
-
-            private static readonly Dictionary<LogixTip, ValueField<bool>> boolFields = new Dictionary<LogixTip, ValueField<bool>>();
-            private static readonly Dictionary<LogixTip, Slot> lastCreatedSlot = new Dictionary<LogixTip, Slot>();
-
             private static readonly string[] targetFieldNames = new[] { "Value", "State", "Target", "Target", "User" };
             private static readonly Type[] targetTypes = new[] { typeof(ValueRegister<>), typeof(BooleanToggle), typeof(ReferenceRegister<>), typeof(SlotRegister), typeof(UserRegister) };
+            private static string LocalizedPrefix => Config.GetValue(NamePrefix) + " ";
 
             [HarmonyPostfix]
             [HarmonyPatch("CreateNewNodeSlot")]
             private static void CreateNewNodeSlotPostfix(LogixTip __instance, Slot __result)
             {
-                lastCreatedSlot[__instance] = __result;
+                getOrCreateLastSlotField(__instance.World).Reference.Target = __result;
             }
 
             [HarmonyPostfix]
             [HarmonyPatch(nameof(LogixTip.GenerateMenuItems))]
             private static void GenerateMenuItemsPostfix(LogixTip __instance, ContextMenu menu)
             {
-                if (!boolFields.ContainsKey(__instance) || boolFields[__instance] == null)
-                {
-                    var local = __instance.Slot.AttachComponent<ValueField<bool>>();
-
-                    local.Persistent = false;
-                    local.Value.Value = Config.GetValue(LocalDefault);
-                    local.MarkChangeDirty();
-
-                    boolFields.Add(__instance, local);
-                }
-
-                menu.AddToggleItem(boolFields[__instance].Value,
+                menu.AddToggleItem(getOrCreateToggleField(__instance.World).Value,
                     "Creating Localized Registers", "Creating Synchronized Registers",
                     color.Pink, color.White,
-                    new Uri(localIcon), new Uri(globalIcon));
+                    Config.GetValue(LocalIcon), Config.GetValue(GlobalIcon));
+            }
+
+            private static ReferenceField<Slot> getOrCreateLastSlotField(World world)
+            {
+                var key = $"LocalLogixRegisters_{world.LocalUser.UserID}_Slot";
+
+                if (world.KeyOwner(key) is ReferenceField<Slot> field)
+                    return field;
+
+                var slot = world.AssetsSlot.FindOrAdd("LocalLogixRegisters", false);
+
+                field = slot.AttachComponent<ReferenceField<Slot>>();
+                field.Reference.DriveFrom(field.Reference, true, true, false).Persistent = false;
+                field.Persistent = false;
+                field.AssignKey(key);
+
+                return field;
+            }
+
+            private static ValueField<bool> getOrCreateToggleField(World world)
+            {
+                var key = $"LocalLogixRegisters_{world.LocalUser.UserID}_Toggle";
+
+                if (world.KeyOwner(key) is ValueField<bool> field)
+                    return field;
+
+                var slot = world.AssetsSlot.FindOrAdd("LocalLogixRegisters", false);
+
+                field = slot.AttachComponent<ValueField<bool>>();
+                field.Value.Value = Config.GetValue(LocalDefault);
+                field.Persistent = false;
+                field.AssignKey(key);
+
+                return field;
             }
 
             [HarmonyPostfix]
             [HarmonyPatch("SpawnNode")]
             private static void SpawnNodePostfix(LogixTip __instance, SyncType ___ActiveNodeType)
             {
-                if (!boolFields.TryGetValue(__instance, out var local) || !local.Value)
+                if (!getOrCreateToggleField(__instance.World).Value)
                     return;
 
-                var type = ___ActiveNodeType.Value;
-                if (type == null || (!targetTypes.Contains(type) && !type.IsGenericType && !targetTypes.Contains(type.GetGenericTypeDefinition()))
-                 || !lastCreatedSlot.TryGetValue(__instance, out var slot))
+                var type = ___ActiveNodeType?.Value;
+                var slot = getOrCreateLastSlotField(__instance.World).Reference.Target;
+
+                if (type == null || slot == null
+                || (!targetTypes.Contains(type) && !type.IsGenericType && !targetTypes.Contains(type.GetGenericTypeDefinition())))
                     return;
 
                 var register = slot.GetComponent(type, true);
@@ -98,14 +125,14 @@ namespace LocalLogixRegisters
                 var field = typeIndex == 4 ? ((UserRegister)register).User.User : register.TryGetField(targetFieldNames[typeIndex]);
 
                 if (typeIndex <= 1)
-                    ValueCopyExtensions.DriveFrom(field, field, true, true, false);
+                    field.DriveFrom(field, true, true, false);
                 else
-                    ReferenceCopyExtensions.DriveFrom((ISyncRef)field, (ISyncRef)field, true, true, false);
+                    ((ISyncRef)field).DriveFrom((ISyncRef)field, true, true, false);
 
-                slot.Name = localizedPrefix + slot.Name;
+                slot.Name = LocalizedPrefix + slot.Name;
 
                 var textContent = slot.GetComponentInChildren<Text>().Content;
-                textContent.Value = localizedPrefix + textContent.Value;
+                textContent.Value = LocalizedPrefix + textContent.Value;
                 slot.Tag = textContent.Value;
             }
         }

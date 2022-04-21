@@ -8,9 +8,15 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "screenshots", "screenshots", "{3EF1A6B5-0026-4A44-849A-CB4EB026848E}"
 	ProjectSection(SolutionItems) = preProject
 		screenshots\Localization.png = screenshots\Localization.png
+		screenshots\LocalizeAllRegisters.png = screenshots\LocalizeAllRegisters.png
+		screenshots\LocalizedField.png = screenshots\LocalizedField.png
+		screenshots\LocalizeField.png = screenshots\LocalizeField.png
+		screenshots\LocalizeRegister.png = screenshots\LocalizeRegister.png
 		screenshots\MenuLocalizing.png = screenshots\MenuLocalizing.png
 		screenshots\MenuSynchronizing.png = screenshots\MenuSynchronizing.png
 		screenshots\Registers.png = screenshots\Registers.png
+		screenshots\SynchronizeAllRegisters.png = screenshots\SynchronizeAllRegisters.png
+		screenshots\SynchronizeRegister.png = screenshots\SynchronizeRegister.png
 	EndProjectSection
 EndProject
 Global

@@ -1,9 +1,11 @@
 Local LogiX Registers
 =====================
 
-A [NeosModLoader](https://github.com/zkxs/NeosModLoader) mod for [Neos VR](https://neos.com/) that adds the ability to create LogiX registers and boolean latches with localized values. This can be toggled on and off with a new context menu entry while having the tool equipped.
+A [NeosModLoader](https://github.com/zkxs/NeosModLoader) mod for [Neos VR](https://neos.com/) that adds the ability to create LogiX registers and boolean latches with localized values. This can be toggled on and off with a new context menu entry while having the tool equipped.  
+It now adds the ability to toggle the localization/synchronization of any held register or all registers in a whole hierarchy,
+as long as they all have the same state. Individual fields can also be localized by grabbing them with the LogiX tip and using the context menu entry.
 
-The prefix for the names of localized nodes, as well as the icons for the context menu can be changed in the settings.  
+The icons for the context menu can be changed in the settings.  
 Localisation state is toggled per session, with the default config option determining what it starts as.
 
 ## Installation
@@ -21,3 +23,15 @@ Localisation state is toggled per session, with the default config option determ
 ![Different kinds of localized Registers](https://github.com/Banane9/NeosLocalLogixRegisters/raw/master/screenshots/Registers.png)
 
 ![How the localization works](https://github.com/Banane9/NeosLocalLogixRegisters/raw/master/screenshots/Localization.png)
+
+![Localizing all Registers in a whole hierarchy](https://github.com/Banane9/NeosLocalLogixRegisters/raw/master/screenshots/LocalizeAllRegisters.png)
+
+![Synchronizing all Registers in a whole hierarchy](https://github.com/Banane9/NeosLocalLogixRegisters/raw/master/screenshots/SynchronizeAllRegisters.png)
+
+![Localizing held Register](https://github.com/Banane9/NeosLocalLogixRegisters/raw/master/screenshots/LocalizeRegister.png)
+
+![Synchronize held Register](https://github.com/Banane9/NeosLocalLogixRegisters/raw/master/screenshots/SynchronizeRegister.png)
+
+![Localize individual Field](https://github.com/Banane9/NeosLocalLogixRegisters/raw/master/screenshots/LocalizeField.png)
+
+![Localized individual Field](https://github.com/Banane9/NeosLocalLogixRegisters/raw/master/screenshots/LocalizedField.png)
